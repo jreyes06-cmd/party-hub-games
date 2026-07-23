@@ -7,7 +7,7 @@ type AuthContextType = {
   profile: Profile | null;
   loading: boolean;
   signUp: (email: string, password: string, username: string) => Promise<void>;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (emailOrUsername: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -76,6 +76,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signIn = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+  };
+
+  const signOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signOut }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
+  return context;
+};
+ById(data.id);
+      if (authError || !authData.user?.email) {
+        throw new Error('Could not retrieve email for username');
+      }
+      email = authData.user.email;
+    }
+    
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
   };

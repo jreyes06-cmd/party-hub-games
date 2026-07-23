@@ -10,7 +10,7 @@ export default function Auth() {
   const navigate = useNavigate();
   const { signUp, signIn } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState('');
+  const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
@@ -25,11 +25,19 @@ export default function Auth() {
           toast.error('Username is required');
           return;
         }
-        await signUp(email, password, username);
+        if (!emailOrUsername.includes('@')) {
+          toast.error('Valid email is required');
+          return;
+        }
+        await signUp(emailOrUsername, password, username);
         toast.success('Account created! Signing in...');
         setTimeout(() => navigate('/'), 1000);
       } else {
-        await signIn(email, password);
+        if (!emailOrUsername.trim()) {
+          toast.error('Username or email is required');
+          return;
+        }
+        await signIn(emailOrUsername, password);
         navigate('/');
       }
     } catch (error: any) {
