@@ -18,58 +18,108 @@ export default function Auth() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (loading) return;
+
     setLoading(true);
 
     try {
       if (isSignUp) {
+        // Validate username
         if (!username.trim()) {
           toast.error('Username is required');
           return;
         }
 
+        // Validate email
         if (!emailOrUsername.includes('@')) {
-          toast.error('Valid email is required');
+          toast.error('Please enter a valid email address');
           return;
         }
 
+        // Validate password
         if (password.length < 6) {
           toast.error('Password must be at least 6 characters');
           return;
         }
 
+        // Create the account
         await signUp(
-          emailOrUsername,
+          emailOrUsername.trim(),
           password,
-          username
+          username.trim()
         );
 
-        toast.success('Account created! Signing in...');
+        // Supabase may require email confirmation
+        toast.success(
+          'Account created! Please check your email to confirm your account.'
+        );
 
-        setTimeout(() => {
-          navigate('/');
-        }, 1000);
+        // Switch back to the sign-in form
+        setIsSignUp(false);
+        setPassword('');
+
       } else {
+        // Validate login email/username
         if (!emailOrUsername.trim()) {
-          toast.error('Username or email is required');
+          toast.error('Email or username is required');
           return;
         }
 
-        if (!password.trim()) {
+        // Validate password
+        if (!password) {
           toast.error('Password is required');
           return;
         }
 
+        // Attempt to sign in
         await signIn(
-          emailOrUsername,
+          emailOrUsername.trim(),
           password
         );
 
+        toast.success('Successfully signed in!');
+
         navigate('/');
       }
+
     } catch (error: any) {
-      toast.error(
-        error?.message || 'Authentication failed'
-      );
+      const errorMessage =
+        error?.message || 'Authentication failed';
+
+      // Handle email confirmation error
+      if (
+        errorMessage.toLowerCase().includes('email not confirmed')
+      ) {
+        toast.error(
+          'Please confirm your email before signing in.'
+        );
+        return;
+      }
+
+      // Handle invalid login
+      if (
+        errorMessage.toLowerCase().includes('invalid login credentials')
+      ) {
+        toast.error(
+          'Incorrect email/username or password.'
+        );
+        return;
+      }
+
+      // Handle already registered email
+      if (
+        errorMessage.toLowerCase().includes('already registered')
+      ) {
+        toast.error(
+          'This email is already registered.'
+        );
+        return;
+      }
+
+      // Generic error
+      toast.error(errorMessage);
+
     } finally {
       setLoading(false);
     }
@@ -77,26 +127,35 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+
       <div className="w-full max-w-md">
 
+        {/* Logo */}
         <div className="text-center mb-8">
+
           <div className="flex items-center justify-center gap-3 mb-4">
+
             <Gamepad2 className="w-8 h-8 text-primary" />
 
             <h1 className="text-3xl font-bold">
               COME PLAY
             </h1>
+
           </div>
 
           <p className="text-muted-foreground">
             Your multiplayer hangout
           </p>
+
         </div>
 
+        {/* Authentication Card */}
         <div className="bg-slate-800/50 backdrop-blur border border-border/20 rounded-lg p-8">
 
           <h2 className="text-2xl font-bold mb-6">
-            {isSignUp ? 'Create Account' : 'Sign In'}
+            {isSignUp
+              ? 'Create Account'
+              : 'Sign In'}
           </h2>
 
           <form
@@ -104,6 +163,7 @@ export default function Auth() {
             className="space-y-4"
           >
 
+            {/* Username - Sign Up Only */}
             {isSignUp && (
               <Input
                 type="text"
@@ -116,20 +176,19 @@ export default function Auth() {
               />
             )}
 
+            {/* Email */}
             <Input
-              type={isSignUp ? 'email' : 'text'}
-              placeholder={
-                isSignUp
-                  ? 'Email'
-                  : 'Email or Username'
-              }
+              type="email"
+              placeholder="Email"
               value={emailOrUsername}
               onChange={(e) =>
                 setEmailOrUsername(e.target.value)
               }
               disabled={loading}
+              required
             />
 
+            {/* Password */}
             <Input
               type="password"
               placeholder="Password"
@@ -138,22 +197,25 @@ export default function Auth() {
                 setPassword(e.target.value)
               }
               disabled={loading}
+              required
             />
 
+            {/* Submit Button */}
             <Button
               type="submit"
               disabled={loading}
               className="w-full bg-primary hover:bg-primary/90"
             >
               {loading
-                ? 'Loading...'
+                ? 'Please wait...'
                 : isSignUp
-                  ? 'Sign Up'
+                  ? 'Create Account'
                   : 'Sign In'}
             </Button>
 
           </form>
 
+          {/* Switch Between Login and Sign Up */}
           <div className="mt-6 text-center">
 
             <p className="text-sm text-muted-foreground mb-2">
@@ -164,9 +226,12 @@ export default function Auth() {
 
             <Button
               variant="ghost"
-              onClick={() =>
-                setIsSignUp(!isSignUp)
-              }
+              onClick={() => {
+                setIsSignUp(!isSignUp);
+                setEmailOrUsername('');
+                setPassword('');
+                setUsername('');
+              }}
               disabled={loading}
             >
               {isSignUp
@@ -175,8 +240,11 @@ export default function Auth() {
             </Button>
 
           </div>
+
         </div>
+
       </div>
+
     </div>
   );
 }
