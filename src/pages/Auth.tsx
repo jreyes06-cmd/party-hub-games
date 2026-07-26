@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 export default function Auth() {
   const navigate = useNavigate();
   const { signUp, signIn } = useAuth();
+
   const [isSignUp, setIsSignUp] = useState(false);
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -25,23 +26,50 @@ export default function Auth() {
           toast.error('Username is required');
           return;
         }
+
         if (!emailOrUsername.includes('@')) {
           toast.error('Valid email is required');
           return;
         }
-        await signUp(emailOrUsername, password, username);
+
+        if (password.length < 6) {
+          toast.error('Password must be at least 6 characters');
+          return;
+        }
+
+        await signUp(
+          emailOrUsername,
+          password,
+          username
+        );
+
         toast.success('Account created! Signing in...');
-        setTimeout(() => navigate('/'), 1000);
+
+        setTimeout(() => {
+          navigate('/');
+        }, 1000);
       } else {
         if (!emailOrUsername.trim()) {
           toast.error('Username or email is required');
           return;
         }
-        await signIn(emailOrUsername, password);
+
+        if (!password.trim()) {
+          toast.error('Password is required');
+          return;
+        }
+
+        await signIn(
+          emailOrUsername,
+          password
+        );
+
         navigate('/');
       }
     } catch (error: any) {
-      toast.error(error.message || 'Authentication failed');
+      toast.error(
+        error?.message || 'Authentication failed'
+      );
     } finally {
       setLoading(false);
     }
@@ -50,64 +78,102 @@ export default function Auth() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
+
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             <Gamepad2 className="w-8 h-8 text-primary" />
-            <h1 className="text-3xl font-bold">COME PLAY</h1>
+
+            <h1 className="text-3xl font-bold">
+              COME PLAY
+            </h1>
           </div>
-          <p className="text-muted-foreground">Your multiplayer hangout</p>
+
+          <p className="text-muted-foreground">
+            Your multiplayer hangout
+          </p>
         </div>
 
-        {/* Form */}
         <div className="bg-slate-800/50 backdrop-blur border border-border/20 rounded-lg p-8">
+
           <h2 className="text-2xl font-bold mb-6">
             {isSignUp ? 'Create Account' : 'Sign In'}
           </h2>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form
+            onSubmit={handleSubmit}
+            className="space-y-4"
+          >
+
             {isSignUp && (
               <Input
+                type="text"
                 placeholder="Username"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={(e) =>
+                  setUsername(e.target.value)
+                }
                 disabled={loading}
               />
             )}
+
             <Input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type={isSignUp ? 'email' : 'text'}
+              placeholder={
+                isSignUp
+                  ? 'Email'
+                  : 'Email or Username'
+              }
+              value={emailOrUsername}
+              onChange={(e) =>
+                setEmailOrUsername(e.target.value)
+              }
               disabled={loading}
             />
+
             <Input
               type="password"
               placeholder="Password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) =>
+                setPassword(e.target.value)
+              }
               disabled={loading}
             />
+
             <Button
               type="submit"
               disabled={loading}
               className="w-full bg-primary hover:bg-primary/90"
             >
-              {loading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}
+              {loading
+                ? 'Loading...'
+                : isSignUp
+                  ? 'Sign Up'
+                  : 'Sign In'}
             </Button>
+
           </form>
 
           <div className="mt-6 text-center">
+
             <p className="text-sm text-muted-foreground mb-2">
-              {isSignUp ? 'Already have an account?' : "Don't have an account?"}
+              {isSignUp
+                ? 'Already have an account?'
+                : "Don't have an account?"}
             </p>
+
             <Button
               variant="ghost"
-              onClick={() => setIsSignUp(!isSignUp)}
+              onClick={() =>
+                setIsSignUp(!isSignUp)
+              }
               disabled={loading}
             >
-              {isSignUp ? 'Sign In' : 'Sign Up'}
+              {isSignUp
+                ? 'Sign In'
+                : 'Sign Up'}
             </Button>
+
           </div>
         </div>
       </div>
