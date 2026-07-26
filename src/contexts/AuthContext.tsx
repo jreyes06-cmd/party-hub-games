@@ -76,33 +76,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signIn = async (emailOrUsername: string, password: string) => {
-    let email = emailOrUsername;
-    
-    // Try to find user by username first
-    if (!emailOrUsername.includes('@')) {
-      try {
-        const { data, error: lookupError } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('username', emailOrUsername)
-          .single();
-        
-        if (lookupError || !data) {
-          throw new Error('Username not found');
-        }
-        
-        // Get the email from auth using the user ID
-        const { data: { user: authUser }, error: authError } = await supabase.auth.admin.getUserById(data.id);
-        if (authError || !authUser?.email) {
-          throw new Error('Could not retrieve email for username');
-        }
-        email = authUser.email;
-      } catch (err) {
-        throw err;
-      }
-    }
-    
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email: emailOrUsername, password });
     if (error) throw error;
   };
 
@@ -123,30 +97,5 @@ export const useAuth = () => {
   if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 };
-      if (authError || !authData.user?.email) {
-        throw new Error('Could not retrieve email for username');
-      }
-      email = authData.user.email;
-    }
-    
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-  };
-
-  const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-  };
-
-  return (
-    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signOut }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 };
