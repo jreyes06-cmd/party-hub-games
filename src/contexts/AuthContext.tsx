@@ -13,36 +13,48 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+export const AuthProvider = ({
+  children,
+}: {
+  children: React.ReactNode;
+}) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const checkSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
       setUser(session?.user ?? null);
+
       if (session?.user) {
-        loadProfile(session.user.id);
+        await loadProfile(session.user.id);
       } else {
+        setLoading(false);
+      }
+    };
+
+    checkSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setUser(session?.user ?? null);
+
+      if (session?.user) {
+        await loadProfile(session.user.id);
+      } else {
+        setProfile(null);
         setLoading(false);
       }
     });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await loadProfile(session.user.id);
-        } else {
-          setProfile(null);
-          setLoading(false);
-        }
-      }
-    );
-
-    return () => subscription?.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const loadProfile = async (userId: string) => {
@@ -53,40 +65,83 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .eq('id', userId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
+
       setProfile(data);
     } catch (error) {
       console.error('Failed to load profile:', error);
+      setProfile(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const signUp = async (email: string, password: string, username: string) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) throw error;
+  const signUp = async (
+    email: string,
+    password: string,
+    username: string
+  ) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) {
+      throw error;
+    }
 
     if (data.user) {
-      const { error: profileError } = await supabase.from('profiles').insert({
-        id: data.user.id,
-        username,
-      });
-      if (profileError) throw profileError;
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: data.user.id,
+          username,
+        });
+
+      if (profileError) {
+        throw profileError;
+      }
     }
   };
 
-  const signIn = async (emailOrUsername: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email: emailOrUsername, password });
-    if (error) throw error;
+  const signIn = async (
+    emailOrUsername: string,
+    password: string
+  ) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: emailOrUsername,
+      password,
+    });
+
+    if (error) {
+      throw error;
+    }
   };
 
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+
+    if (error) {
+      throw error;
+    }
+
+    setUser(null);
+    setProfile(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        profile,
+        loading,
+        signUp,
+        signIn,
+        signOut,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -94,6 +149,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
+
+  if (!context) {
+    throw new Error(
+      'useAuth must be used within AuthProvider'
+    );
+  }
+
   return context;
 };
