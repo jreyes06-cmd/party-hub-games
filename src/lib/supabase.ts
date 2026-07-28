@@ -8,7 +8,20 @@ if (!supabaseUrl || !supabaseKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+// Get the current origin for redirect URLs
+const getRedirectUrl = () => {
+  // In development, use localhost. In production, use the deployed URL.
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  return 'https://preview--0ea286f3-84a8-40ad-bead-2f3a5373bf88.buildify.build';
+};
+
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    redirectTo: getRedirectUrl(),
+  },
+});
 
 // Types
 export type Profile = {
