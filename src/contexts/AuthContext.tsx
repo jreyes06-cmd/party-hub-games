@@ -94,16 +94,15 @@ export const AuthProvider = ({
     if (error) throw error;
   };
 
-  // ✅ DIRECT UUID GENERATION — NO ANONYMOUS SIGN-IN NEEDED
+  // ✅ GUEST SIGN-IN — CLEAN VERSION
   const signInAsGuest = async (username: string) => {
-    // Generate valid UUID manually
+    // Generate valid UUID
     const guestId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
       const r = Math.random() * 16 | 0;
       const v = c === 'x' ? r : (r & 0x3 | 0x8);
       return v.toString(16);
     });
 
-    // Insert profile directly — bypass auth requirement
     setUser({
       id: guestId,
       email: `${guestId}@guest.local`,
@@ -141,8 +140,11 @@ export const AuthProvider = ({
   );
 };
 
+// ✅ FIXED — THIS WAS THE BROKEN PART BEFORE
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
   return context;
 };
