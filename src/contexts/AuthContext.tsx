@@ -30,23 +30,19 @@ export const AuthProvider = ({
       const {
         data: { session },
       } = await supabase.auth.getSession();
-
       setUser(session?.user ?? null);
-
       if (session?.user) {
         await loadProfile(session.user.id);
       } else {
         setLoading(false);
       }
     };
-
     checkSession();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null);
-
       if (session?.user) {
         await loadProfile(session.user.id);
       } else {
@@ -71,7 +67,6 @@ export const AuthProvider = ({
       if (error) {
         throw error;
       }
-
       setProfile(data);
     } catch (error) {
       console.error('Failed to load profile:', error);
@@ -123,9 +118,10 @@ export const AuthProvider = ({
     }
   };
 
+  // ✅ FIXED: Generates VALID UUID instead of guest_ format
   const signInAsGuest = async (username: string) => {
-    const guestId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+    const guestId = crypto.randomUUID(); // ✅ Proper UUID format
+
     const { error } = await supabase
       .from('profiles')
       .insert({
@@ -162,7 +158,6 @@ export const AuthProvider = ({
         throw error;
       }
     }
-
     setUser(null);
     setProfile(null);
     setIsGuest(false);
@@ -188,12 +183,10 @@ export const AuthProvider = ({
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-
   if (!context) {
     throw new Error(
       'useAuth must be used within AuthProvider'
     );
   }
-
   return context;
 };
