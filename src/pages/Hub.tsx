@@ -11,27 +11,31 @@ export default function Hub() {
   const navigate = useNavigate();
   const { user, profile, signOut } = useAuth();
   const { createLobby, joinLobby } = useLobby();
+  
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   const [lobbyName, setLobbyName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // ✅ UPDATED: Shows error popup so we see EXACTLY what fails
   const handleCreateLobby = async () => {
     if (!lobbyName.trim()) return;
     try {
       setLoading(true);
-      await createLobby(lobbyName);
+      const code = await createLobby(lobbyName);
       setShowCreateDialog(false);
       setLobbyName('');
       navigate('/lobby');
-    } catch (error) {
-      console.error('Failed to create lobby:', error);
+    } catch (error: any) {
+      console.error('❌ Failed to create lobby:', error);
+      alert("❌ ERROR: " + (error?.message || "Unknown error"));
     } finally {
       setLoading(false);
     }
   };
 
+  // ✅ UPDATED: Shows error popup for joining too
   const handleJoinLobby = async () => {
     if (!joinCode.trim()) return;
     try {
@@ -40,8 +44,9 @@ export default function Hub() {
       setShowJoinDialog(false);
       setJoinCode('');
       navigate('/lobby');
-    } catch (error) {
-      console.error('Failed to join lobby:', error);
+    } catch (error: any) {
+      console.error('❌ Failed to join lobby:', error);
+      alert("❌ ERROR: " + (error?.message || "Lobby not found"));
     } finally {
       setLoading(false);
     }
