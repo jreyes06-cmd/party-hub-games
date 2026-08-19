@@ -118,25 +118,31 @@ export const AuthProvider = ({
     }
   };
 
-  // ✅ FIXED: Generates VALID UUID instead of guest_ format
+  // ✅ FINAL FIX: Uses Supabase Auth → Valid UUID + Passes Security
   const signInAsGuest = async (username: string) => {
-    const guestId = crypto.randomUUID(); // ✅ Proper UUID format
+    // Let Supabase create the guest user automatically
+    const { data, error: authError } = await supabase.auth.signInAnonymously();
 
-    const { error } = await supabase
+    if (authError) throw authError;
+    if (!data.user) throw new Error("Failed to create guest user");
+
+    // ✅ Supabase gives us a PERFECT valid UUID automatically
+    const guestId = data.user.id;
+
+    // ✅ Now insert profile — user is authenticated so security allows it
+    const { error: profileError } = await supabase
       .from('profiles')
       .insert({
         id: guestId,
         username: username.trim(),
       });
 
-    if (error) {
-      throw error;
-    }
+    if (profileError) throw profileError;
 
     setUser({
       id: guestId,
       email: `${guestId}@guest.local`,
-      user_metadata: { is_guest: true },
+      user_metadata: { is_guest: true, username },
     } as User);
 
     setProfile({
