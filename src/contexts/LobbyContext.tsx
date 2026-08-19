@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 
 export default function Lobby() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  import { useAuth } from '@/contexts/AuthContext';
   const { lobby, members, messages, sendMessage, setReady, leaveLobby, startGame } = useLobby();
   const [messageInput, setMessageInput] = useState('');
   const [loading, setLoading] = useState(false);
