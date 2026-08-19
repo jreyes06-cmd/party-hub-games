@@ -74,13 +74,11 @@ export default function Lobby() {
     }
   };
 
-  // ✅ FIXED COPY BUTTON — NO MORE CRASHING!!!
   const handleCopyCode = () => {
     try {
       navigator.clipboard.writeText(lobby.code);
       toast.success('Lobby code copied!');
     } catch {
-      // ✅ Fallback: Show code so user can copy manually
       alert(`Lobby Code: ${lobby.code}\n(Select & copy manually)`);
     }
   };
@@ -88,7 +86,6 @@ export default function Lobby() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold mb-2">{lobby.name}</h1>
@@ -117,7 +114,6 @@ export default function Lobby() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Members Panel */}
           <div className="lg:col-span-1">
             <div className="bg-slate-800/50 backdrop-blur border border-border/20 rounded-lg p-6">
               <h2 className="text-xl font-bold mb-4">Players ({members.length})</h2>
@@ -140,7 +136,6 @@ export default function Lobby() {
                 ))}
               </div>
 
-              {/* Ready Button */}
               <Button
                 onClick={handleToggleReady}
                 className="w-full mt-6"
@@ -149,7 +144,6 @@ export default function Lobby() {
                 {currentUser?.is_ready ? '✓ Ready' : 'Not Ready'}
               </Button>
 
-              {/* Start Game Button */}
               {isHost && (
                 <Button
                   onClick={handleStartGame}
@@ -163,7 +157,6 @@ export default function Lobby() {
             </div>
           </div>
 
-          {/* Chat Panel */}
           <div className="lg:col-span-2">
             <div className="bg-slate-800/50 backdrop-blur border border-border/20 rounded-lg p-6 h-full flex flex-col">
               <h2 className="text-xl font-bold mb-4">Lobby Chat</h2>
@@ -181,7 +174,6 @@ export default function Lobby() {
                 </div>
               </ScrollArea>
 
-              {/* Message Input */}
               <form onSubmit={handleSendMessage} className="flex gap-2">
                 <Input
                   placeholder="Say something..."
