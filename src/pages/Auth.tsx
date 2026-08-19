@@ -8,13 +8,31 @@ import { toast } from 'sonner';
 
 export default function Auth() {
   const navigate = useNavigate();
-  const { signUp, signIn } = useAuth();
+  const { signUp, signIn, signInAsGuest } = useAuth();
 
   const [isSignUp, setIsSignUp] = useState(false);
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const handleGuestSignIn = async () => {
+    if (!username.trim()) {
+      toast.error('Please enter a username');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await signInAsGuest(username.trim());
+      toast.success('Welcome, ' + username + '!');
+      navigate('/');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to sign in as guest');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -214,6 +232,40 @@ export default function Auth() {
             </Button>
 
           </form>
+
+          {/* Guest Sign In */}
+          {!isSignUp && (
+            <div className="mt-6 space-y-4">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border/20"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-slate-800/50 text-muted-foreground">
+                    or
+                  </span>
+                </div>
+              </div>
+
+              <Input
+                type="text"
+                placeholder="Enter username for guest play"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                disabled={loading}
+              />
+
+              <Button
+                type="button"
+                onClick={handleGuestSignIn}
+                disabled={loading}
+                variant="outline"
+                className="w-full"
+              >
+                {loading ? 'Loading...' : 'Play as Guest'}
+              </Button>
+            </div>
+          )}
 
           {/* Switch Between Login and Sign Up */}
           <div className="mt-6 text-center">

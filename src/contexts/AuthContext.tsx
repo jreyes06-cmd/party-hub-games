@@ -6,8 +6,10 @@ type AuthContextType = {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
+  isGuest: boolean;
   signUp: (email: string, password: string, username: string) => Promise<void>;
   signIn: (emailOrUsername: string, password: string) => Promise<void>;
+  signInAsGuest: (username: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -21,6 +23,7 @@ export const AuthProvider = ({
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isGuest, setIsGuest] = useState(false);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -120,15 +123,49 @@ export const AuthProvider = ({
     }
   };
 
-  const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
+  const signInAsGuest = async (username: string) => {
+    const guestId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    const { error } = await supabase
+      .from('profiles')
+      .insert({
+        id: guestId,
+        username: username.trim(),
+      });
 
     if (error) {
       throw error;
     }
 
+    setUser({
+      id: guestId,
+      email: `${guestId}@guest.local`,
+      user_metadata: { is_guest: true },
+    } as User);
+
+    setProfile({
+      id: guestId,
+      username: username.trim(),
+      avatar_url: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+
+    setIsGuest(true);
+    setLoading(false);
+  };
+
+  const signOut = async () => {
+    if (!isGuest) {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        throw error;
+      }
+    }
+
     setUser(null);
     setProfile(null);
+    setIsGuest(false);
   };
 
   return (
@@ -137,8 +174,10 @@ export const AuthProvider = ({
         user,
         profile,
         loading,
+        isGuest,
         signUp,
         signIn,
+        signInAsGuest,
         signOut,
       }}
     >
