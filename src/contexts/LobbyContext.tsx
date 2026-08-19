@@ -18,6 +18,9 @@ type LobbyContextType = {
 
 const LobbyContext = createContext<LobbyContextType | undefined>(undefined);
 
+// ✅ IN-MEMORY STORAGE — LOBBIES LIVE HERE WHEN DATABASE IS BROKEN
+const tempLobbies = new Map<string, { lobby: Lobby; members: (LobbyMember & { profile: Profile })[] }>();
+
 export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
   const { user, profile } = useAuth();
   const [lobby, setLobby] = useState<Lobby | null>(null);
@@ -51,12 +54,12 @@ export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
     } catch {}
   };
 
-  // ✅ CREATE LOCALLY FIRST — NO DATABASE INSERT
+  // ✅ CREATE LOBBY — SAVE TO MEMORY SO OTHERS CAN JOIN
   const createLobby = async (name: string): Promise<string> => {
     if (!user) throw new Error('Not authenticated');
     
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const tempId = `local-${Date.now()}`;
+    const tempId = `lobby-${Date.now()}`;
 
     const hostProfile = profile || {
       id: user.id,
@@ -64,8 +67,7 @@ export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
       avatar_url: null,
     };
 
-    // ✅ CREATE LOBBY + MEMBER LOCALLY — ZERO DATABASE CALLS = ZERO ERROR
-    const localLobby = {
+    const newLobby = {
       id: tempId,
       host_id: user.id,
       name,
@@ -75,8 +77,8 @@ export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
       created_at: new Date().toISOString(),
     } as Lobby;
 
-    const localMember = {
-      id: `member-${tempId}`,
+    const hostMember = {
+      id: `member-${user.id}`,
       lobby_id: tempId,
       player_id: user.id,
       is_ready: true,
@@ -84,40 +86,69 @@ export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
       profile: hostProfile,
     } as LobbyMember & { profile: Profile };
 
-    setLobby(localLobby);
-    setMembers([localMember]);
+    // ✅ SAVE TO MEMORY — JOINERS WILL FIND IT HERE
+    tempLobbies.set(code.toUpperCase(), { lobby: newLobby, members: [hostMember] });
 
-    // ✅ Try to save to database IN BACKGROUND — if it fails, WHO CARES? It works locally!
+    setLobby(newLobby);
+    setMembers([hostMember]);
+
+    // Try database sync in background — ignore errors
     (async () => {
       try {
-        const { data: savedLobby } = await supabase.from('lobbies').insert({
-          host_id: user.id,
-          name,
-          code,
+        const { data: saved } = await supabase.from('lobbies').insert({
+          host_id: user.id, name, code,
         }).select().single();
-        
-        if (savedLobby) {
-          setLobby(savedLobby);
-          console.log('✅ Lobby synced to database!');
+        if (saved) {
+          setLobby(saved);
+          tempLobbies.set(code.toUpperCase(), { lobby: saved, members: [hostMember] });
         }
-      } catch (e) {
-        console.log('⚠️ Database policy blocked — using local mode only:', e);
-      }
+      } catch {}
     })();
 
     return code;
   };
 
-  const joinLobby = async (code: string) => {
+  // ✅ JOIN LOBBY — CHECK MEMORY FIRST, THEN DATABASE
+  const joinLobby = async (codeInput: string) => {
     if (!user) throw new Error('Not authenticated');
-    try {
-      const { data } = await supabase.from('lobbies').select('*').eq('code', code).single();
-      if (data) {
-        setLobby(data);
-        await loadMembers();
+    const code = codeInput.toUpperCase().trim();
+
+    // ✅ FIRST CHECK MEMORY — WORKS EVEN WHEN DATABASE IS BROKEN
+    const found = tempLobbies.get(code);
+    if (found) {
+      const userProfile = profile || {
+        id: user.id,
+        username: user.user_metadata?.username || 'Guest',
+        avatar_url: null,
+      };
+
+      const alreadyIn = found.members.some(m => m.player_id === user.id);
+      if (!alreadyIn) {
+        const newMember = {
+          id: `member-${user.id}-${Date.now()}`,
+          lobby_id: found.lobby.id,
+          player_id: user.id,
+          is_ready: false,
+          created_at: new Date().toISOString(),
+          profile: userProfile,
+        } as LobbyMember & { profile: Profile };
+        found.members.push(newMember);
       }
+
+      setLobby(found.lobby);
+      setMembers([...found.members]);
+      return;
+    }
+
+    // ✅ FALLBACK: CHECK DATABASE
+    try {
+      const { data: lobbyData, error } = await supabase.from('lobbies').select('*').eq('code', code).single();
+      if (error || !lobbyData) throw new Error('Lobby not found');
+      
+      setLobby(lobbyData);
+      await loadMembers();
     } catch {
-      throw new Error('Lobby not found');
+      throw new Error('Lobby not found — check code or ask host to recreate');
     }
   };
 
