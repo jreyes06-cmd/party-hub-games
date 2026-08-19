@@ -25,10 +25,8 @@ export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
   const [messages, setMessages] = useState<(Message & { profile: Profile })[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Subscribe to lobby updates
   useEffect(() => {
     if (!lobby) return;
-
     const channel = supabase
       .channel(`lobby:${lobby.id}`)
       .on(
@@ -53,7 +51,6 @@ export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
         }
       )
       .subscribe();
-
     return () => {
       channel.unsubscribe();
     };
@@ -65,12 +62,10 @@ export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
       .from('lobby_members')
       .select('*, profile:player_id(id, username, avatar_url)')
       .eq('lobby_id', lobby.id);
-
     if (error) {
       console.error('Failed to load members:', error);
       return;
     }
-
     setMembers(data as any);
   };
 
@@ -82,19 +77,19 @@ export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
       .eq('lobby_id', lobby.id)
       .order('created_at', { ascending: true })
       .limit(50);
-
     if (error) {
       console.error('Failed to load messages:', error);
       return;
     }
-
     setMessages(data as any);
   };
 
+  // ✅ FIXED: Allows guests to create lobbies!
   const createLobby = async (name: string): Promise<string> => {
-    if (!user || !profile) throw new Error('Not authenticated');
-
+    if (!user) throw new Error('Not authenticated');
+    
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    
     const { data, error } = await supabase
       .from('lobbies')
       .insert({
@@ -105,13 +100,20 @@ export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Create lobby error:', error);
+      throw error;
+    }
 
-    // Add host as member
-    await supabase.from('lobby_members').insert({
+    const { error: memberError } = await supabase.from('lobby_members').insert({
       lobby_id: data.id,
       player_id: user.id,
+      is_ready: true,
     });
+
+    if (memberError) {
+      console.error('❌ Add member error:', memberError);
+    }
 
     setLobby(data);
     await loadMembers();
@@ -120,20 +122,17 @@ export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
 
   const joinLobby = async (code: string) => {
     if (!user) throw new Error('Not authenticated');
-
     const { data: lobbyData, error: lobbyError } = await supabase
       .from('lobbies')
       .select('*')
       .eq('code', code)
       .single();
-
     if (lobbyError) throw new Error('Lobby not found');
 
     const { error: joinError } = await supabase.from('lobby_members').insert({
       lobby_id: lobbyData.id,
       player_id: user.id,
     });
-
     if (joinError) throw joinError;
 
     setLobby(lobbyData);
@@ -142,13 +141,11 @@ export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
 
   const leaveLobby = async () => {
     if (!lobby || !user) return;
-
     await supabase
       .from('lobby_members')
       .delete()
       .eq('lobby_id', lobby.id)
       .eq('player_id', user.id);
-
     setLobby(null);
     setMembers([]);
     setMessages([]);
@@ -156,19 +153,16 @@ export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
 
   const setReady = async (ready: boolean) => {
     if (!lobby || !user) return;
-
     await supabase
       .from('lobby_members')
       .update({ is_ready: ready })
       .eq('lobby_id', lobby.id)
       .eq('player_id', user.id);
-
     await loadMembers();
   };
 
   const sendMessage = async (content: string) => {
     if (!lobby || !user) return;
-
     await supabase.from('messages').insert({
       lobby_id: lobby.id,
       sender_id: user.id,
@@ -178,7 +172,6 @@ export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
 
   const startGame = async (gameType: string) => {
     if (!lobby) return;
-
     await supabase
       .from('lobbies')
       .update({ status: 'in_game', current_game: gameType })
