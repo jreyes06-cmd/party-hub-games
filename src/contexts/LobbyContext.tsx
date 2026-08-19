@@ -84,7 +84,7 @@ export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
     setMessages(data as any);
   };
 
-  // ✅ FIXED: Allows guests to create lobbies!
+  // ✅ FIXED: No profile check + NO RETURN = stops infinite recursion!
   const createLobby = async (name: string): Promise<string> => {
     if (!user) throw new Error('Not authenticated');
     
@@ -105,11 +105,12 @@ export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
       throw error;
     }
 
+    // ✅ { returning: 'minimal' } = STOPS INFINITE RECURSION!
     const { error: memberError } = await supabase.from('lobby_members').insert({
       lobby_id: data.id,
       player_id: user.id,
       is_ready: true,
-    });
+    }, { returning: 'minimal' });
 
     if (memberError) {
       console.error('❌ Add member error:', memberError);
@@ -132,7 +133,8 @@ export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
     const { error: joinError } = await supabase.from('lobby_members').insert({
       lobby_id: lobbyData.id,
       player_id: user.id,
-    });
+    }, { returning: 'minimal' });
+
     if (joinError) throw joinError;
 
     setLobby(lobbyData);
@@ -167,7 +169,7 @@ export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
       lobby_id: lobby.id,
       sender_id: user.id,
       content,
-    });
+    }, { returning: 'minimal' });
   };
 
   const startGame = async (gameType: string) => {
