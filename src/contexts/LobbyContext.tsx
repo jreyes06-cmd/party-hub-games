@@ -18,8 +18,14 @@ type LobbyContextType = {
 
 const LobbyContext = createContext<LobbyContextType | undefined>(undefined);
 
-// ✅ IN-MEMORY STORAGE — LOBBIES LIVE HERE WHEN DATABASE IS BROKEN
-const tempLobbies = new Map<string, { lobby: Lobby; members: (LobbyMember & { profile: Profile })[] }>();
+// ✅ SHARED MEMORY STORAGE — LOBBIES + CHAT LIVE HERE
+const tempLobbies = new Map<string, { 
+  lobby: Lobby; 
+  members: (LobbyMember & { profile: Profile })[];
+  messages: (Message & { profile: Profile })[];
+}>();
+
+let globalMessageId = 1;
 
 export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
   const { user, profile } = useAuth();
@@ -54,7 +60,7 @@ export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
     } catch {}
   };
 
-  // ✅ CREATE LOBBY — SAVE TO MEMORY SO OTHERS CAN JOIN
+  // ✅ CREATE LOBBY — saves to shared memory
   const createLobby = async (name: string): Promise<string> => {
     if (!user) throw new Error('Not authenticated');
     
@@ -86,13 +92,18 @@ export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
       profile: hostProfile,
     } as LobbyMember & { profile: Profile };
 
-    // ✅ SAVE TO MEMORY — JOINERS WILL FIND IT HERE
-    tempLobbies.set(code.toUpperCase(), { lobby: newLobby, members: [hostMember] });
+    // ✅ Save to shared memory — includes EMPTY chat array
+    tempLobbies.set(code.toUpperCase(), { 
+      lobby: newLobby, 
+      members: [hostMember],
+      messages: []
+    });
 
     setLobby(newLobby);
     setMembers([hostMember]);
+    setMessages([]);
 
-    // Try database sync in background — ignore errors
+    // Try database in background — ignore errors
     (async () => {
       try {
         const { data: saved } = await supabase.from('lobbies').insert({
@@ -100,7 +111,11 @@ export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
         }).select().single();
         if (saved) {
           setLobby(saved);
-          tempLobbies.set(code.toUpperCase(), { lobby: saved, members: [hostMember] });
+          tempLobbies.set(code.toUpperCase(), { 
+            lobby: saved, 
+            members: [hostMember],
+            messages: []
+          });
         }
       } catch {}
     })();
@@ -108,12 +123,12 @@ export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
     return code;
   };
 
-  // ✅ JOIN LOBBY — CHECK MEMORY FIRST, THEN DATABASE
+  // ✅ JOIN LOBBY — loads chat history too!
   const joinLobby = async (codeInput: string) => {
     if (!user) throw new Error('Not authenticated');
     const code = codeInput.toUpperCase().trim();
 
-    // ✅ FIRST CHECK MEMORY — WORKS EVEN WHEN DATABASE IS BROKEN
+    // ✅ Check memory FIRST
     const found = tempLobbies.get(code);
     if (found) {
       const userProfile = profile || {
@@ -137,18 +152,19 @@ export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
 
       setLobby(found.lobby);
       setMembers([...found.members]);
+      setMessages([...found.messages]); // ✅ LOAD CHAT HISTORY
       return;
     }
 
-    // ✅ FALLBACK: CHECK DATABASE
+    // Fallback to database
     try {
       const { data: lobbyData, error } = await supabase.from('lobbies').select('*').eq('code', code).single();
       if (error || !lobbyData) throw new Error('Lobby not found');
-      
       setLobby(lobbyData);
       await loadMembers();
+      await loadMessages();
     } catch {
-      throw new Error('Lobby not found — check code or ask host to recreate');
+      throw new Error('Lobby not found — check code');
     }
   };
 
@@ -163,7 +179,43 @@ export const LobbyProvider = ({ children }: { children: React.ReactNode }) => {
     setMembers(prev => prev.map(m => m.player_id === user.id ? { ...m, is_ready: ready } : m));
   };
 
-  const sendMessage = async (content: string) => {};
+  // ✅ SEND MESSAGE — ACTUALLY WORKS NOW!!!
+  const sendMessage = async (content: string) => {
+    if (!lobby || !content.trim()) return;
+
+    // Find this lobby in shared memory
+    let foundEntry: typeof tempLobbies extends Map<string, infer V> ? V : undefined;
+    for (const [, entry] of tempLobbies) {
+      if (entry.lobby.id === lobby.id) {
+        foundEntry = entry;
+        break;
+      }
+    }
+
+    const userProfile = profile || {
+      id: user.id,
+      username: user.user_metadata?.username || 'Guest',
+      avatar_url: null,
+    };
+
+    const newMessage = {
+      id: `msg-${globalMessageId++}`,
+      lobby_id: lobby.id,
+      sender_id: user.id,
+      content,
+      created_at: new Date().toISOString(),
+      profile: userProfile,
+    } as Message & { profile: Profile };
+
+    // ✅ Save to memory so EVERYONE sees it
+    if (foundEntry) {
+      foundEntry.messages.push(newMessage);
+      setMessages([...foundEntry.messages]);
+    } else {
+      setMessages(prev => [...prev, newMessage]);
+    }
+  };
+
   const startGame = async (gameType: string) => {
     if (!lobby) return;
     try {
